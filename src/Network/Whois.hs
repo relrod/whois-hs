@@ -48,11 +48,11 @@ serverFor a
 
 {-| Returns whois information. -}
 whois :: String -> IO (Maybe String)
-whois a = withSocketsDo $ fetchWhois a (serverFor a)
+whois a = withSocketsDo $ fetchWhois a $ serverFor a
 
 fetchWhois :: String -> Maybe WhoisServer -> IO (Maybe String)
 fetchWhois a (Just server) = do
-  sock <- connectTo (hostname server) (PortNumber $ fromIntegral (port server))
+  sock <- connectTo (hostname server) (PortNumber $ fromIntegral $ port server)
   hPutStr sock $ query server ++ a ++ "\r\n"
   contents <- hGetContents sock
   return $ Just contents
