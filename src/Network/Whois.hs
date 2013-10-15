@@ -48,15 +48,15 @@ serverFor a
 
 {-| Returns whois information. -}
 whois :: String -> IO (Maybe String)
-whois a = withSocketsDo $ do
-  let x = serverFor a
-  if isNothing x     -- Ewwww
-    then return Nothing
-    else do
-      let (Just b) = x  -- Ewwww
-      sock <- connectTo (hostname b) (PortNumber $ fromIntegral (port b))
-      hPutStr sock $ query b ++ a ++ "\r\n"
-      liftM Just $ hGetContents sock
+whois a = withSocketsDo $ fetchWhois a (serverFor a)
+
+fetchWhois :: String -> Maybe WhoisServer -> IO (Maybe String)
+fetchWhois a (Just server) = do
+  sock <- connectTo (hostname server) (PortNumber $ fromIntegral (port server))
+  hPutStr sock $ query server ++ a ++ "\r\n"
+  contents <- hGetContents sock
+  return $ Just contents
+fetchWhois a Nothing = return Nothing
 
 {-| Looks for a referral server in the response of a whois lookup.
 
