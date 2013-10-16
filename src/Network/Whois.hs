@@ -28,7 +28,7 @@ isIpAddress = liftM2 (||) isIPv4address isIPv6address
   usually \<tld\>.whois-servers.net. If we're given an IP address, we default to
   a transient server (ARIN), which can give us referral servers to try.
 
-  > serverFor "4.2.2.2"                   -- WhoisServer "whois.arin.net" "n + "
+  > serverFor "192.0.2.123"               -- WhoisServer "whois.arin.net" "n + "
 -}
 serverFor :: String -> Maybe WhoisServer
 serverFor a
