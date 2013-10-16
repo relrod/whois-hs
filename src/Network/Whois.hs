@@ -4,11 +4,10 @@ module Network.Whois (
   , whois
 ) where
 
-import Control.Monad (liftM, liftM2)
+import Control.Monad (liftM2)
 import Data.Char (toLower)
 import Data.List (isInfixOf)
 import Data.List.Split (splitOn)
-import Data.Maybe (isNothing)
 import Network
 import Network.URI (isIPv6address, isIPv4address)
 import System.IO
@@ -47,8 +46,14 @@ serverFor a
       _ -> WhoisServer (tld  ++ ".whois-servers.net") 43 "domain "
 
 {-| Returns whois information. -}
-whois :: String -> IO (Maybe String)
-whois a = withSocketsDo $ fetchWhois a $ serverFor a
+whois :: String -> IO [Maybe String]
+whois a = withSocketsDo $ do
+  m <- fetchWhois a $ serverFor a
+  n <- case m of
+    Just n -> fetchWhois a $ referralServer n
+    _ -> return Nothing
+
+  return [m, n]
 
 fetchWhois :: String -> Maybe WhoisServer -> IO (Maybe String)
 fetchWhois a (Just server) = do
@@ -73,3 +78,17 @@ getReferralServer x = if null r
     f y = filter (map toLower y `isInfixOf`) l
     r = concatMap f ["referralserver: ", "whois server: "]
     p y = splitOn ": " y !! 1
+
+{-| Parse referral server into a WhoisServer. -}
+parseReferralServer :: Maybe String -> Maybe WhoisServer
+parseReferralServer Nothing = Nothing
+parseReferralServer (Just s) = Just whoisServer
+  where
+    noPrefix = reverse $ takeWhile (/= '/') $ reverse s
+    splitPort = splitOn ":" noPrefix
+    whoisServer = if length splitPort > 1
+                  then WhoisServer (head splitPort) (read (splitPort !! 1) :: Int) ""
+                  else WhoisServer (head splitPort) 43 ""
+
+referralServer :: String -> Maybe WhoisServer
+referralServer a = parseReferralServer $ getReferralServer a
