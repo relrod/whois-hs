@@ -46,14 +46,14 @@ serverFor a
       _ -> WhoisServer (tld  ++ ".whois-servers.net") 43 "domain "
 
 {-| Returns whois information. -}
-whois :: String -> IO [Maybe String]
+whois :: String -> IO (Maybe String, Maybe String)
 whois a = withSocketsDo $ do
   m <- fetchWhois a $ serverFor a
   n <- case m of
     Just n -> fetchWhois a $ referralServer n
     _ -> return Nothing
 
-  return [m, n]
+  return (m, n)
 
 fetchWhois :: String -> Maybe WhoisServer -> IO (Maybe String)
 fetchWhois a (Just server) = do
