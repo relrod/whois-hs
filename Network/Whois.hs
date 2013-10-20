@@ -2,6 +2,7 @@ module Network.Whois (
   WhoisServer (..)
   , serverFor
   , whois
+  , whois1
 ) where
 
 import Control.Monad (liftM2)
@@ -47,7 +48,7 @@ serverFor a
 
 {-| Returns whois information. -}
 whois :: String -> IO (Maybe String, Maybe String)
-whois a = withSocketsDo $ do
+whois a = do
   m <- fetchWhois a $ serverFor a
   n <- case m of
     Just n -> fetchWhois a $ referralServer n
@@ -55,8 +56,12 @@ whois a = withSocketsDo $ do
 
   return (m, n)
 
+{-| Returns whois information from a particular server. -}
+whois1 :: String -> WhoisServer -> IO (Maybe String)
+whois1 a b = fetchWhois a (Just b)
+
 fetchWhois :: String -> Maybe WhoisServer -> IO (Maybe String)
-fetchWhois a (Just server) = do
+fetchWhois a (Just server) = withSocketsDo $ do
   sock <- connectTo (hostname server) (PortNumber $ fromIntegral $ port server)
   hPutStr sock $ query server ++ a ++ "\r\n"
   contents <- hGetContents sock
