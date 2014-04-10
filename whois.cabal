@@ -20,7 +20,7 @@ stability:           experimental, may change (open to suggestions!)
 
 library
   exposed-modules:     Network.Whois
-  build-depends:       base ==4.6.*, split ==0.2.*, network ==2.4.*
+  build-depends:       base > 4 && < 5, split >= 0.2 && < 1, network >= 2.4 && < 3
 
 source-repository head
   type:     git
