@@ -66,7 +66,7 @@ fetchWhois a (Just server) = withSocketsDo $ do
   hPutStr sock $ query server ++ a ++ "\r\n"
   contents <- hGetContents sock
   return $ Just contents
-fetchWhois a Nothing = return Nothing
+fetchWhois _ Nothing = return Nothing
 
 {-| Looks for a referral server in the response of a whois lookup.
 
