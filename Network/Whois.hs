@@ -58,21 +58,19 @@ serverFor a
 {-| Returns whois information. -}
 whois :: String -> IO (Maybe String, Maybe String)
 whois a = do
-  m <- fetchWhois a $ serverFor a
-  n <- maybe (return Nothing) (fetchWhois a . referralServer) m
+  m <- lookupVia $ serverFor a
+  n <- lookupVia $ referralServer =<< m
   return (m, n)
+      where
+        lookupVia = maybe (return Nothing) (whois1 a)
 
 {-| Returns whois information from a particular server. -}
 whois1 :: String -> WhoisServer -> IO (Maybe String)
-whois1 a b = fetchWhois a (Just b)
-
-fetchWhois :: String -> Maybe WhoisServer -> IO (Maybe String)
-fetchWhois a (Just server) = withSocketsDo $ do
+whois1 a server = withSocketsDo $ do
   sock <- connectTo (hostname server) (PortNumber $ fromIntegral $ port server)
   hPutStr sock $ query server ++ a ++ "\r\n"
   contents <- hGetContents sock
   return $ Just contents
-fetchWhois _ Nothing = return Nothing
 
 {-| Looks for a referral server in the response of a whois lookup. -}
 getReferralServer :: String -> Maybe String
