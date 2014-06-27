@@ -1,5 +1,5 @@
 name:                whois
-version:             1.2.0
+version:             1.2.1
 synopsis:            WHOIS client library.
 homepage:            http://github.com/CodeBlock/whois-hs
 bug-reports:         https://github.com/CodeBlock/whois-hs/issues
