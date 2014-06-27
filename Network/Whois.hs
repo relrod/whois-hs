@@ -68,12 +68,7 @@ fetchWhois a (Just server) = withSocketsDo $ do
   return $ Just contents
 fetchWhois _ Nothing = return Nothing
 
-{-| Looks for a referral server in the response of a whois lookup.
-
-    This function is private but not yet used, so it triggers a warning when
-    we compile with -Wall. This is known and intentional. This will be used in
-    a function which is yet to be implemented.
--}
+{-| Looks for a referral server in the response of a whois lookup. -}
 getReferralServer :: String -> Maybe String
 getReferralServer x =
     case filter (not . null) $ map afterColon $ filter isReferral $ crlfLines x of
