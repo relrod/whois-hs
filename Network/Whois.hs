@@ -50,10 +50,7 @@ serverFor a
 whois :: String -> IO (Maybe String, Maybe String)
 whois a = do
   m <- fetchWhois a $ serverFor a
-  n <- case m of
-    Just n -> fetchWhois a $ referralServer n
-    _ -> return Nothing
-
+  n <- maybe (return Nothing) (fetchWhois a . referralServer) m
   return (m, n)
 
 {-| Returns whois information from a particular server. -}
