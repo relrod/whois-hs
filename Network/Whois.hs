@@ -23,6 +23,10 @@ data WhoisServer = WhoisServer {
 defaultPort :: Int
 defaultPort = 43
 
+-- | The default query to send to whois servers, followed by the domain name.
+defaultQuery :: String
+defaultQuery = ""
+
 -- | Determines whether or not a given string is a valid IPv4 or IPv6 address.
 isIpAddress :: String -> Bool
 isIpAddress = liftM2 (||) isIPv4address isIPv6address
@@ -43,11 +47,11 @@ serverFor a
   where
     tld = reverse . takeWhile (/= '.') $ reverse a
     findServer = case tld of
-      "ly" -> server "whois.nic.ly" ""
-      "gd" -> server "gd.whois-servers.net" "" -- answers directly
-      "io" -> server "io.whois-servers.net" "" -- answers directly
+      "ly" -> server "whois.nic.ly" defaultQuery
+      "gd" -> server "gd.whois-servers.net" defaultQuery -- answers directly
+      "io" -> server "io.whois-servers.net" defaultQuery -- answers directly
       "de" -> server "whois.denic.de" "-T dn,ace "
-      "so" -> server "whois.nic.so" ""
+      "so" -> server "whois.nic.so" defaultQuery
       _    -> server (tld  ++ ".whois-servers.net") "domain "
     server h q = Just (WhoisServer h defaultPort q)
 
@@ -82,15 +86,13 @@ getReferralServer x =
     afterColon y = splitOn ": " y !! 1
 
 {-| Parse referral server into a WhoisServer. -}
-parseReferralServer :: Maybe String -> Maybe WhoisServer
-parseReferralServer Nothing = Nothing
-parseReferralServer (Just s) =
-    case splitOn ":" noPrefix of
-      [h]    -> Just $ WhoisServer h defaultPort ""
-      [h, p] -> Just $ WhoisServer h (read p :: Int) ""
-      _      -> Nothing
+parseReferralServer :: String -> Maybe WhoisServer
+parseReferralServer = fromParts . splitOn ":" . removePrefix
     where
-      noPrefix = reverse $ takeWhile (/= '/') $ reverse s
+      fromParts [h]    = Just $ WhoisServer h defaultPort defaultQuery
+      fromParts [h, p] = Just $ WhoisServer h (read p :: Int) defaultQuery
+      fromParts _      = Nothing
+      removePrefix = reverse . takeWhile (/= '/') . reverse
 
 referralServer :: String -> Maybe WhoisServer
-referralServer a = parseReferralServer $ getReferralServer a
+referralServer a = parseReferralServer =<< getReferralServer a
