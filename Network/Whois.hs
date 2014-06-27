@@ -82,13 +82,13 @@ getReferralServer x =
 {-| Parse referral server into a WhoisServer. -}
 parseReferralServer :: Maybe String -> Maybe WhoisServer
 parseReferralServer Nothing = Nothing
-parseReferralServer (Just s) = Just whoisServer
-  where
-    noPrefix = reverse $ takeWhile (/= '/') $ reverse s
-    splitPort = splitOn ":" noPrefix
-    whoisServer = if length splitPort > 1
-                  then WhoisServer (head splitPort) (read (splitPort !! 1) :: Int) ""
-                  else WhoisServer (head splitPort) 43 ""
+parseReferralServer (Just s) =
+    case splitOn ":" noPrefix of
+      [h]    -> Just $ WhoisServer h 43 ""
+      [h, p] -> Just $ WhoisServer h (read p :: Int) ""
+      _      -> Nothing
+    where
+      noPrefix = reverse $ takeWhile (/= '/') $ reverse s
 
 referralServer :: String -> Maybe WhoisServer
 referralServer a = parseReferralServer $ getReferralServer a
