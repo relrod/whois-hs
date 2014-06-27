@@ -55,7 +55,7 @@ serverFor a
       _    -> server (tld  ++ ".whois-servers.net") "domain "
     server h q = Just (WhoisServer h defaultPort q)
 
-{-| Returns whois information. -}
+{-| Returns whois information from the top-level and referral servers. -}
 whois :: String -> IO (Maybe String, Maybe String)
 whois a = do
   m <- lookupVia $ serverFor a
@@ -90,6 +90,7 @@ parseReferralServer = fromParts . splitOn ":" . removePrefix
       fromParts [h]    = Just $ WhoisServer h defaultPort defaultQuery
       fromParts [h, p] = Just $ WhoisServer h (read p :: Int) defaultQuery
       fromParts _      = Nothing
+      -- Drop the "whois://" prefix returned in ARIN's ReferralServer fields
       removePrefix = reverse . takeWhile (/= '/') . reverse
 
 referralServer :: String -> Maybe WhoisServer
