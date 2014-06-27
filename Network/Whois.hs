@@ -19,6 +19,10 @@ data WhoisServer = WhoisServer {
   , query :: String
 } deriving (Show, Eq)
 
+-- | The default port on which to connect to whois servers
+defaultPort :: Int
+defaultPort = 43
+
 -- | Determines whether or not a given string is a valid IPv4 or IPv6 address.
 isIpAddress :: String -> Bool
 isIpAddress = liftM2 (||) isIPv4address isIPv6address
@@ -33,18 +37,19 @@ isIpAddress = liftM2 (||) isIPv4address isIPv6address
 -}
 serverFor :: String -> Maybe WhoisServer
 serverFor a
-  | isIpAddress a     = Just $ WhoisServer "whois.arin.net" 43 "n + "
-  | "." `isInfixOf` a = Just findServer
+  | isIpAddress a     = server "whois.arin.net" "n + "
+  | "." `isInfixOf` a = findServer
   | otherwise         = Nothing
   where
     tld = reverse . takeWhile (/= '.') $ reverse a
     findServer = case tld of
-      "ly" -> WhoisServer "whois.nic.ly" 43 ""
-      "gd" -> WhoisServer "gd.whois-servers.net" 43 "" -- answers directly
-      "io" -> WhoisServer "io.whois-servers.net" 43 "" -- answers directly
-      "de" -> WhoisServer "whois.denic.de" 43 "-T dn,ace "
-      "so" -> WhoisServer "whois.nic.so" 43 ""
-      _ -> WhoisServer (tld  ++ ".whois-servers.net") 43 "domain "
+      "ly" -> server "whois.nic.ly" ""
+      "gd" -> server "gd.whois-servers.net" "" -- answers directly
+      "io" -> server "io.whois-servers.net" "" -- answers directly
+      "de" -> server "whois.denic.de" "-T dn,ace "
+      "so" -> server "whois.nic.so" ""
+      _    -> server (tld  ++ ".whois-servers.net") "domain "
+    server h q = Just (WhoisServer h defaultPort q)
 
 {-| Returns whois information. -}
 whois :: String -> IO (Maybe String, Maybe String)
@@ -81,7 +86,7 @@ parseReferralServer :: Maybe String -> Maybe WhoisServer
 parseReferralServer Nothing = Nothing
 parseReferralServer (Just s) =
     case splitOn ":" noPrefix of
-      [h]    -> Just $ WhoisServer h 43 ""
+      [h]    -> Just $ WhoisServer h defaultPort ""
       [h, p] -> Just $ WhoisServer h (read p :: Int) ""
       _      -> Nothing
     where
