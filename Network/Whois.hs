@@ -75,7 +75,7 @@ getReferralServer x =
       [] -> Nothing
       (r:_) -> Just r
   where
-    crlfLines = map (takeWhile (not . ('\r' ==))) . lines
+    crlfLines = map (takeWhile (/= '\r')) . lines
     isReferral m = any (`isInfixOf` map toLower m) ["referralserver: ", "whois server: "]
     afterColon y = splitOn ": " y !! 1
 
