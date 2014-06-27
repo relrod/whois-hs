@@ -75,14 +75,14 @@ fetchWhois a Nothing = return Nothing
     a function which is yet to be implemented.
 -}
 getReferralServer :: String -> Maybe String
-getReferralServer x = if null r
-                      then Nothing
-                      else Just (p $ head r)
+getReferralServer x =
+    case filter (not . null) $ map afterColon $ filter isReferral $ crlfLines x of
+      [] -> Nothing
+      (r:_) -> Just r
   where
-    l = lines $ map toLower x
-    f y = filter (map toLower y `isInfixOf`) l
-    r = concatMap f ["referralserver: ", "whois server: "]
-    p y = splitOn ": " y !! 1
+    crlfLines = map (takeWhile (not . ('\r' ==))) . lines
+    isReferral m = any (`isInfixOf` map toLower m) ["referralserver: ", "whois server: "]
+    afterColon y = splitOn ": " y !! 1
 
 {-| Parse referral server into a WhoisServer. -}
 parseReferralServer :: Maybe String -> Maybe WhoisServer
