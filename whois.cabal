@@ -1,8 +1,8 @@
 name:                whois
 version:             1.2.2
 synopsis:            WHOIS client library.
-homepage:            http://github.com/CodeBlock/whois-hs
-bug-reports:         https://github.com/CodeBlock/whois-hs/issues
+homepage:            http://github.com/relrod/whois-hs
+bug-reports:         https://github.com/relrod/whois-hs/issues
 
 license:             BSD3
 license-file:        LICENSE
@@ -32,4 +32,4 @@ library
 
 source-repository head
   type:     git
-  location: git://github.com/CodeBlock/whois-hs.git
+  location: git://github.com/relrod/whois-hs.git
