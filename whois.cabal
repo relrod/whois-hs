@@ -1,5 +1,5 @@
 name:                whois
-version:             1.2.2
+version:             1.2.3
 synopsis:            WHOIS client library.
 homepage:            http://github.com/relrod/whois-hs
 bug-reports:         https://github.com/relrod/whois-hs/issues
