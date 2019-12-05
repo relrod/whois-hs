@@ -52,6 +52,7 @@ serverFor a
       "io" -> server "io.whois-servers.net" defaultQuery -- answers directly
       "de" -> server "whois.denic.de" "-T dn,ace "
       "so" -> server "whois.nic.so" defaultQuery
+      "dk" -> server "whois.dk-hostmaster.dk" defaultQuery
       _    -> server (tld  ++ ".whois-servers.net") "domain "
     server h q = Just (WhoisServer h defaultPort q)
 
