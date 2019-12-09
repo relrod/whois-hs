@@ -20,11 +20,34 @@ stability:           experimental, may change (open to suggestions!)
 
 library
   exposed-modules:     Network.Whois
-  build-depends:       base ^>= 4.7
+                     , Network.Whois.Internal
+  build-depends:       base ^>= 4.12
                      , split ^>= 0.2
                      , network ^>= 2.8
                      , network-uri ^>= 2.6
+                     , file-embed ^>= 0.0
+                     , bytestring ^>= 0.10
 
 source-repository head
   type:     git
   location: git://github.com/relrod/whois-hs.git
+
+test-suite test
+  type: exitcode-stdio-1.0
+  main-is: test.hs
+  hs-source-dirs:
+      test
+  other-modules:
+      WhoisTest
+      Paths_whois
+  build-depends:
+      base
+    , network ^>= 2.8
+    , whois
+    , tasty
+    , tasty-discover
+    , tasty-hspec
+    , tasty-hedgehog
+    , hedgehog
+    , hspec
+  default-language: Haskell2010
