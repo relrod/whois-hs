@@ -36,6 +36,10 @@ data WhoisServer = WhoisServer
   , whoisQuery      :: ByteString
   } deriving (Show, Eq)
 
+-- | The default WHOIS port number according to RFC 3912.
+defaultWhoisPort :: PortNumber
+defaultWhoisPort = 43
+
 -- | A WHOIS request may fail for the following reasons.
 data WhoisError =
     -- | The input 'HostName' is not a valid IP address and does not have a
@@ -114,8 +118,11 @@ whoisServerFor hostName
   | '.' `elem` hostName = whoisBySuffix hostName
   | otherwise = Left UnknownWhoisServer
 
+-- | Construct a 'WhoisServer' with 'defaultWhoisPort' and
+-- 'withDefaultQuery'.
 whoisServer :: Monad m => HostName -> m WhoisServer
-whoisServer hostName = return (WhoisServer hostName 43 "")
+whoisServer hostName =
+  pure $ withDefaultQuery (WhoisServer hostName defaultWhoisPort "")
 
 -- | Construct a 'WhoisServer' based on the last part of the queried
 -- 'HostName'.
