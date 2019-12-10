@@ -13,9 +13,7 @@ module Network.Whois.Internal where
 
 import System.IO
 
-import Control.Monad.IO.Class (MonadIO)
 import qualified Control.Exception as E
-
 import qualified Data.ByteString.Char8 as C
 import           Data.ByteString.Char8 (ByteString)
 import           Data.Char (toLower, isSpace)
