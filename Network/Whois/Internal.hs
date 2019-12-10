@@ -185,7 +185,7 @@ tldServList =
     parseWhoisServer []
       = []
 
-    tldServListFile = $(embedStringFile "tld_serv_list")
+    tldServListFile = $(embedStringFile "data/tld_serv_list")
 
 -- | Determine if a string in 'tld_serv_list' indicates a special protocol.
 -- In the 'whois' program these have their own network client handlers not
@@ -205,5 +205,5 @@ ianaTLDs :: [String]
 ianaTLDs =
   filter (not . isComment) . lines . map toLower $ ianaTLDsFile
   where
-    ianaTLDsFile = $(embedStringFile "tlds-alpha-by-domain.txt")
+    ianaTLDsFile = $(embedStringFile "data/tlds-alpha-by-domain.txt")
     isComment s = null s || "#" `isPrefixOf` s
