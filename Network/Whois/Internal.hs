@@ -155,10 +155,9 @@ withDefaultQuery ws = case whoisHostName ws of
   "whois.dk-hostmaster.dk" -> ws { whoisQuery = "--show-handles " }
   _ -> ws
 
--- TODO: Remove 'splitOn' and 'split' dependency.
-
--- https://github.com/rfc1036/whois/blob/next/make_tld_serv.pl
--- https://github.com/rfc1036/whois/blob/tld_serv_list
+-- | A lookup table from TLD to possible 'HostName'.
+--
+-- This table is derived from https://github.com/rfc1036/whois
 tldServList :: [(String, Either WhoisError HostName)]
 tldServList =
   lines tldServListFile
@@ -208,9 +207,24 @@ isIPAddress addr = isIPv4address addr || isIPv6address addr
 isKnownTLD :: HostName -> Bool
 isKnownTLD = (`elem` ianaTLDs)
 
+-- | A total list of TLDs provided by IANA.
 ianaTLDs :: [String]
-ianaTLDs =
-  filter (not . isComment) . lines . map toLower $ ianaTLDsFile
+ianaTLDs = parseTLDs $(embedStringFile "data/tlds-alpha-by-domain.txt")
+
+-- | A list of TLDs deemed "new" by the 'whois' program:
+--
+-- > If a TLD is listed in this file then queries will go to whois.nic.$TLD.
+-- > All "new" gTLDs are mandated by the ICANN contract to provide port 43
+-- > and web-based whois service on this standard domain.  Any exceptions
+-- > can be handled in 'tld_serv_list' as usual, since it will be checked
+-- > first.
+newGTLDs :: [String]
+newGTLDs = parseTLDs $(embedStringFile "data/new_gtlds_list.txt")
+
+-- | Extract a list of TLDs from a file where each line contains one TLD.
+--
+-- Strip comments and empty lines away.
+parseTLDs :: String -> [String]
+parseTLDs = filter (not . isComment) . lines . map toLower
   where
-    ianaTLDsFile = $(embedStringFile "data/tlds-alpha-by-domain.txt")
     isComment s = null s || "#" `isPrefixOf` s

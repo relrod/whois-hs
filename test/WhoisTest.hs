@@ -12,15 +12,9 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 import Test.Tasty.Hspec
-import Test.Tasty.Hedgehog
 
-import Network.Socket (HostName, tupleToHostAddress)
+import Network.Socket (HostName)
 import Network.Whois.Internal
-
--- TODO: Investigate how ARIN's WHOIS server deals with CIDR. The 'whois'
--- program appears to strip CIDR ranges from the query, I recall?
-
--- TODO: Test IPv6 addresses
 
 spec_whoisServerFor :: Spec
 spec_whoisServerFor =
