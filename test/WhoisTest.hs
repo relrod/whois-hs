@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 
 module WhoisTest where
 
@@ -28,6 +29,22 @@ spec_whoisServerFor =
       for_ ["0.0.0", "-1.0.0.0", "256.0.0.0", "127.0.0.a"] $ \badAddr ->
         whoisServerFor badAddr `shouldBe` Left UnknownWhoisServer
 
+    it "is case-insensitive" $
+      whoisServerFor "x.com" `shouldBe` whoisServerFor "X.COM"
+
+    for_ ianaTLDs $ \tld ->
+      it ("uses IANA's WHOIS server for " <> tld <> " TLD") $
+        whoisServerFor tld `shouldBe` Right ianaWhoisServer
+
+    for_ ianaTLDs $ \tld ->
+      it ("handles IANA's " <> tld <> " TLD") $
+        whoisServerFor ("x." <> tld) `shouldSatisfy`
+          (\case
+             Right _ -> True
+             Left NoWhoisServer -> True
+             Left (WebOnlyWhoisServer _) -> True
+             _ -> False)
+
 hprop_whoisServerFor_uses_ARIN_for_IP_Addresses :: Property
 hprop_whoisServerFor_uses_ARIN_for_IP_Addresses =
   property $ do
@@ -35,28 +52,11 @@ hprop_whoisServerFor_uses_ARIN_for_IP_Addresses =
     got <- evalEither (whoisServerFor ip4)
     got === arinWhoisServer
 
-hprop_whoisServerFor_uses_IANA_for_TLDs :: Property
-hprop_whoisServerFor_uses_IANA_for_TLDs =
-  property $ do
-    tld <- forAll ianaTLDGen
-    got <- evalEither (whoisServerFor tld)
-    got === ianaWhoisServer
-
-hprop_whoisServerFor_by_TLD :: Property
-hprop_whoisServerFor_by_TLD =
-  property $ do
-    tld <- forAll ianaTLDGen
-    _got <- evalEither (whoisServerFor ("x." <> tld))
-    success
-
 ip4Gen :: Gen HostName
 ip4Gen = intercalate "." . map show <$> replicateM 4 partGen
   where
     partGen :: Gen Word8
     partGen = Gen.integral Range.linearBounded
-
-ianaTLDGen :: Gen String
-ianaTLDGen = Gen.element ianaTLDs
 
 arinWhoisServer :: WhoisServer
 arinWhoisServer = WhoisServer "whois.arin.net" 43 "n + "

@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- |
 -- Module: Network.Whois.Internal
@@ -112,7 +113,7 @@ recvAll s = do
 
 -- | Determine what 'WhoisServer' to query based on 'HostName'.
 whoisServerFor :: HostName -> Either WhoisError WhoisServer
-whoisServerFor hostName
+whoisServerFor (map toLower -> hostName)
   | isIPAddress hostName = whoisServer "whois.arin.net"
   | isKnownTLD hostName = whoisServer "whois.iana.org"
   | '.' `elem` hostName = whoisBySuffix hostName
@@ -132,11 +133,14 @@ whoisServer hostName =
 -- > whoisBySuffix ... XXX
 whoisBySuffix :: HostName -> Either WhoisError WhoisServer
 whoisBySuffix hostName =
-  let suffix = dropWhile (/= '.') hostName in
-    case lookup suffix tldServList of
-      Nothing -> Left UnknownWhoisServer
-      Just (Left err) -> Left err
-      Just (Right ws) -> whoisServer ws
+  let suffix = dropWhile (/= '.') hostName
+      tld = drop 1 suffix
+  in case lookup suffix tldServList of
+       Just (Left err) -> Left err
+       Just (Right ws) -> whoisServer ws
+       Nothing -> if tld `elem` newGTLDs
+         then whoisServer ("whois.nic." <> tld)
+         else Left UnknownWhoisServer
 
 -- | Determine the default query for a given WHOIS server.
 --
