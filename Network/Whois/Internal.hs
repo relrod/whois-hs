@@ -165,9 +165,12 @@ tldServList =
   where
     removeComments =
         filter (not . null)
-      . map (dropWhileEnd isSpace)
+      . map skipTrailingSpace
       . take 1
       . splitOn '#'
+
+    skipTrailingSpace :: String -> String
+    skipTrailingSpace = dropWhileEnd isSpace
 
     parseWhoisServer :: [String] -> [(String, Either WhoisError WhoisServer)]
     parseWhoisServer [tld, ws]
