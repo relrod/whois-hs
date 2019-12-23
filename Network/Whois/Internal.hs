@@ -51,8 +51,8 @@ data WhoisError =
     -- | The input 'HostName' has a TLD which only allows WHOIS via a web
     -- service (marked 'WEB' in 'tld_serv_list').
   | WebOnlyWhoisServer String
-    -- | The input 'HostName' has a network protocol that is not supported in
-    -- this client library. See 'isUnsupported'.
+    -- | The input 'HostName' has a network protocol that is not supported
+    -- in this client library. See 'isUnsupported'.
   | UnsupportedWhoisServer
   deriving (Show, Eq)
 
