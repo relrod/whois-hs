@@ -21,6 +21,7 @@ import           Data.Char (toLower, isSpace)
 import           Data.FileEmbed (embedStringFile)
 import           Data.List (dropWhileEnd, isPrefixOf)
 import           Data.List.Split (splitOn)
+import           Data.Maybe (fromMaybe)
 import           Network.Socket (HostName, PortNumber, Socket, SocketType(..),
                                  AddrInfo(..), getAddrInfo, withSocketsDo,
                                  close, defaultHints, socket, connect)
@@ -132,15 +133,12 @@ whoisServer hostName =
 --
 -- > whoisBySuffix ... XXX
 whoisBySuffix :: HostName -> Either WhoisError WhoisServer
-whoisBySuffix hostName =
-  let suffix = dropWhile (/= '.') hostName
-      tld = drop 1 suffix
-  in case lookup suffix tldServList of
-       Just (Left err) -> Left err
-       Just (Right ws) -> whoisServer ws
-       Nothing -> if tld `elem` newGTLDs
-         then whoisServer ("whois.nic." <> tld)
-         else Left UnknownWhoisServer
+whoisBySuffix hostName = fromMaybe gTLD (lookup suffix tldServList)
+  where
+    suffix = dropWhile (/= '.') hostName
+    gTLD = if drop 1 suffix `elem` newGTLDs
+      then whoisServer ("whois.nic" <> suffix)
+      else Left UnknownWhoisServer
 
 -- | Determine the default query for a given WHOIS server.
 --
@@ -162,7 +160,7 @@ withDefaultQuery ws = case whoisHostName ws of
 -- | A lookup table from TLD to possible 'HostName'.
 --
 -- This table is derived from https://github.com/rfc1036/whois
-tldServList :: [(String, Either WhoisError HostName)]
+tldServList :: [(String, Either WhoisError WhoisServer)]
 tldServList =
   lines tldServListFile
     >>= removeComments
@@ -174,14 +172,14 @@ tldServList =
       . take 1
       . splitOn "#"
 
-    parseWhoisServer :: [String] -> [(String, Either WhoisError HostName)]
+    parseWhoisServer :: [String] -> [(String, Either WhoisError WhoisServer)]
     parseWhoisServer [tld, ws]
       | ws == "NONE"     = [(tld, Left NoWhoisServer)]
       | isUnsupported ws = [(tld, Left UnsupportedWhoisServer)]
-      | otherwise        = [(tld, Right ws)]
+      | otherwise        = [(tld, whoisServer ws)]
 
     parseWhoisServer [tld, "VERISIGN", ws]
-      = [(tld, Right ws)]
+      = [(tld, whoisServer ws)]
 
     parseWhoisServer [tld, "WEB", url]
       = [(tld, Left (WebOnlyWhoisServer url))]
