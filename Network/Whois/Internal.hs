@@ -12,15 +12,12 @@
 
 module Network.Whois.Internal where
 
-import System.IO
-
 import qualified Control.Exception as E
 import qualified Data.ByteString.Char8 as C
 import           Data.ByteString.Char8 (ByteString)
 import           Data.Char (toLower, isSpace)
 import           Data.FileEmbed (embedStringFile)
 import           Data.List (dropWhileEnd, isPrefixOf)
-import           Data.List.Split (splitOn)
 import           Data.Maybe (fromMaybe)
 import           Network.Socket (HostName, PortNumber, Socket, SocketType(..),
                                  AddrInfo(..), getAddrInfo, withSocketsDo,
@@ -170,7 +167,7 @@ tldServList =
         filter (not . null)
       . map (dropWhileEnd isSpace)
       . take 1
-      . splitOn "#"
+      . splitOn '#'
 
     parseWhoisServer :: [String] -> [(String, Either WhoisError WhoisServer)]
     parseWhoisServer [tld, ws]
@@ -187,7 +184,7 @@ tldServList =
     parseWhoisServer [tld]
       = [(tld, Left UnknownWhoisServer)]
 
-    parseWhoisServer (tld : rest)
+    parseWhoisServer (tld : _rest)
       = [(tld, Left UnsupportedWhoisServer)]
 
     parseWhoisServer []
@@ -230,3 +227,9 @@ parseTLDs :: String -> [String]
 parseTLDs = filter (not . isComment) . lines . map toLower
   where
     isComment s = null s || "#" `isPrefixOf` s
+
+splitOn :: Eq a => a -> [a] -> [[a]]
+splitOn _sep [] = []
+splitOn sep xs = case span (/= sep) xs of
+  (ys, []) -> [ys]
+  (ys, rest) -> ys : splitOn sep (drop 1 rest)
