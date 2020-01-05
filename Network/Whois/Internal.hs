@@ -15,7 +15,7 @@ module Network.Whois.Internal where
 import qualified Control.Exception as E
 import qualified Data.ByteString.Char8 as C
 import           Data.ByteString.Char8 (ByteString)
-import           Data.Char (toLower, isSpace)
+import           Data.Char (toLower, isSpace, isDigit)
 import           Data.FileEmbed (embedStringFile)
 import           Data.List (dropWhileEnd, isPrefixOf)
 import           Data.Maybe (fromMaybe)
@@ -53,11 +53,13 @@ data WhoisError =
     -- | The input 'HostName' has a network protocol that is not supported
     -- in this client library. See 'isUnsupported'.
   | UnsupportedWhoisServer
+    -- | The input 'HostName' is an invalid network address.
+  | InvalidAddress
   deriving (Show, Eq)
 
--- |
--- Perform a WHOIS lookup, giving either a 'WhoisError' or the 'ByteString'
--- body of the WHOIS response.
+-- | Perform a WHOIS lookup and give either a 'WhoisError' or the
+-- 'ByteString' body of the WHOIS response.
+--
 --
 -- Examples:
 --
@@ -65,19 +67,17 @@ data WhoisError =
 -- > runWhoisClient "haskell.org"
 -- > runWhoisClient "horse"
 runWhoisClient :: HostName -> IO (Either WhoisError ByteString)
-runWhoisClient hostName =
-  case whoisServerFor hostName of
-    Right ws -> Right <$> runWhoisClient' hostName ws
+runWhoisClient queryHostName =
+  case whoisServerFor queryHostName of
+    Right ws -> Right <$> runWhoisClient' queryHostName ws
     Left err -> pure (Left err)
 
 -- | Perform a WHOIS lookup with a specific 'WhoisServer'.
---
--- /(This function may change signature.)/
 runWhoisClient' :: HostName -> WhoisServer -> IO ByteString
 runWhoisClient' queryHostName WhoisServer{..} =
-  runTCPClient whoisHostName whoisPortNumber $ \s -> do
-    sendAll s (whoisQuery <> C.pack queryHostName <> "\r\n")
-    recvAll s
+  runTCPClient whoisHostName whoisPortNumber $ \socket -> do
+    sendAll socket (whoisQuery <> C.pack queryHostName <> "\r\n")
+    recvAll socket
 
 -- | Connect to 'HostName' and 'PortNumber' and perform IO action via TCP.
 --
@@ -100,42 +100,54 @@ runTCPClient host port client =
         pure sock
 
 -- | Calls 'recv' continuously until the connection closes.
---
--- Uses a 4096-byte buffer.
 recvAll :: Socket -> IO ByteString
-recvAll s = do
-  got <- recv s 4096
+recvAll socket = do
+  got <- recv socket 4096
   if C.null got
     then pure got
-    else fmap (got <>) (recvAll s)
+    else fmap (got <>) (recvAll socket)
 
 -- | Determine what 'WhoisServer' to query based on 'HostName'.
 whoisServerFor :: HostName -> Either WhoisError WhoisServer
 whoisServerFor (map toLower -> hostName)
-  | isIPAddress hostName = whoisServer "whois.arin.net"
-  | isKnownTLD hostName = whoisServer "whois.iana.org"
-  | '.' `elem` hostName = whoisBySuffix hostName
-  | otherwise = Left UnknownWhoisServer
+  | isIPAddress hostName = pure arinWhoisServer
+  | isMalformedIPAddress hostName = Left InvalidAddress
+  | '.' `notElem` hostName = pure ianaWhoisServer
+  | isDomainName hostName = newDefaultTLD suffix (lookup suffix tldServList)
+  | otherwise = Left InvalidAddress
+  where
+    suffix = dropWhile (/= '.') hostName
+
+    newDefaultTLD
+      :: String
+      -> Maybe (Either WhoisError WhoisServer)
+      -> Either WhoisError WhoisServer
+    newDefaultTLD = fromMaybe . pure . newTLDWhoisServer
+
+arinWhoisServer :: WhoisServer
+arinWhoisServer = WhoisServer "whois.arin.net" defaultWhoisPort "n + "
+
+ianaWhoisServer :: WhoisServer
+ianaWhoisServer = WhoisServer "whois.iana.org" defaultWhoisPort ""
+
+newTLDWhoisServer :: String -> WhoisServer
+newTLDWhoisServer suffix = WhoisServer ("whois.nic" <> suffix) defaultWhoisPort ""
+
+-- | When querying the Verisign gTLDs (e.g. .com, .net...) thin registry
+-- servers for a domain the program will automatically prepend the 'domain'
+-- keyword to only show domain records.  The 'nameserver' or 'registrar'
+-- keywords must be used to show other kinds of records.
+--
+-- See ICANN's WHOIS specification:
+-- https://www.icann.org/en/system/files/files/registry-agmt-app5-22sep05-en.pdf
+verisignWhoisServer :: HostName -> WhoisServer
+verisignWhoisServer ws = WhoisServer ws defaultWhoisPort "domain "
 
 -- | Construct a 'WhoisServer' with 'defaultWhoisPort' and
 -- 'withDefaultQuery'.
-whoisServer :: Monad m => HostName -> m WhoisServer
+whoisServer :: HostName -> WhoisServer
 whoisServer hostName =
-  pure $ withDefaultQuery (WhoisServer hostName defaultWhoisPort "")
-
--- | Construct a 'WhoisServer' based on the last part of the queried
--- 'HostName'.
---
--- For example:
---
--- > whoisBySuffix ... XXX
-whoisBySuffix :: HostName -> Either WhoisError WhoisServer
-whoisBySuffix hostName = fromMaybe gTLD (lookup suffix tldServList)
-  where
-    suffix = dropWhile (/= '.') hostName
-    gTLD = if drop 1 suffix `elem` newGTLDs
-      then whoisServer ("whois.nic" <> suffix)
-      else Left UnknownWhoisServer
+  withDefaultQuery $ WhoisServer hostName defaultWhoisPort ""
 
 -- | Determine the default query for a given WHOIS server.
 --
@@ -159,41 +171,30 @@ withDefaultQuery ws = case whoisHostName ws of
 -- This table is derived from https://github.com/rfc1036/whois
 tldServList :: [(String, Either WhoisError WhoisServer)]
 tldServList =
-  lines tldServListFile
+  pure content
+    >>= lines
     >>= removeComments
     >>= parseWhoisServer . words
   where
+    content = $(embedStringFile "data/tld_serv_list")
+
     removeComments =
         filter (not . null)
       . map skipTrailingSpace
       . take 1
-      . splitOn '#'
+      . splitOn "#"
 
-    skipTrailingSpace :: String -> String
     skipTrailingSpace = dropWhileEnd isSpace
 
-    parseWhoisServer :: [String] -> [(String, Either WhoisError WhoisServer)]
-    parseWhoisServer [tld, ws]
-      | ws == "NONE"     = [(tld, Left NoWhoisServer)]
-      | isUnsupported ws = [(tld, Left UnsupportedWhoisServer)]
-      | otherwise        = [(tld, whoisServer ws)]
-
-    parseWhoisServer [tld, "VERISIGN", ws]
-      = [(tld, whoisServer ws)]
-
-    parseWhoisServer [tld, "WEB", url]
-      = [(tld, Left (WebOnlyWhoisServer url))]
-
-    parseWhoisServer [tld]
-      = [(tld, Left UnknownWhoisServer)]
-
-    parseWhoisServer (tld : _rest)
-      = [(tld, Left UnsupportedWhoisServer)]
-
-    parseWhoisServer []
-      = []
-
-    tldServListFile = $(embedStringFile "data/tld_serv_list")
+    parseWhoisServer line = case line of
+      [] -> []
+      [tld] -> [(tld, Left UnknownWhoisServer)]
+      [tld, "NONE"] -> [(tld, Left NoWhoisServer)]
+      [tld, "WEB", url] -> [(tld, Left (WebOnlyWhoisServer url))]
+      [tld, "VERISIGN", ws] -> [(tld, Right (verisignWhoisServer ws))]
+      [tld, ws] | isUnsupported ws -> [(tld, Left UnsupportedWhoisServer)]
+      [tld, ws] -> [(tld, Right (whoisServer ws))]
+      tld : _ -> [(tld, Left UnsupportedWhoisServer)]
 
 -- | Determine if a string in 'tld_serv_list' indicates a special protocol.
 -- In the 'whois' program these have their own network client handlers not
@@ -205,23 +206,18 @@ isUnsupported = (`elem` ["AFILIAS", "ARPA", "IP6"])
 isIPAddress :: HostName -> Bool
 isIPAddress addr = isIPv4address addr || isIPv6address addr
 
--- | Determines whether or not a hostname is a known TLD at IANA.
-isKnownTLD :: HostName -> Bool
-isKnownTLD = (`elem` ianaTLDs)
-
--- | A total list of TLDs provided by IANA.
-ianaTLDs :: [String]
-ianaTLDs = parseTLDs $(embedStringFile "data/tlds-alpha-by-domain.txt")
-
--- | A list of TLDs deemed "new" by the 'whois' program:
+-- | Determine if a 'HostName' is an invalid network address.
 --
--- > If a TLD is listed in this file then queries will go to whois.nic.$TLD.
--- > All "new" gTLDs are mandated by the ICANN contract to provide port 43
--- > and web-based whois service on this standard domain.  Any exceptions
--- > can be handled in 'tld_serv_list' as usual, since it will be checked
--- > first.
-newGTLDs :: [String]
-newGTLDs = parseTLDs $(embedStringFile "data/new_gtlds_list.txt")
+-- 
+isMalformedIPAddress :: HostName -> Bool
+isMalformedIPAddress addr =
+  all isDigitOrDot addr && not (isIPv4address addr) ||
+  ':' `elem` addr       && not (isIPv6address addr)
+  where
+    isDigitOrDot c = isDigit c || c == '.'
+
+isDomainName :: HostName -> Bool
+isDomainName = all (not . null) . splitOn ".-"
 
 -- | Extract a list of TLDs from a file where each line contains one TLD.
 --
@@ -231,8 +227,11 @@ parseTLDs = filter (not . isComment) . lines . map toLower
   where
     isComment s = null s || "#" `isPrefixOf` s
 
-splitOn :: Eq a => a -> [a] -> [[a]]
+-- | Splits on any number of single separators
+--
+-- 'splitOn ".-" "a.b-c.d" == ["a","b","c","d"]'
+splitOn :: Eq a => [a] -> [a] -> [[a]]
 splitOn _sep [] = []
-splitOn sep xs = case span (/= sep) xs of
+splitOn seps xs = case span (`notElem` seps) xs of
   (ys, []) -> [ys]
-  (ys, rest) -> ys : splitOn sep (drop 1 rest)
+  (ys, rest) -> ys : splitOn seps (drop 1 rest)
