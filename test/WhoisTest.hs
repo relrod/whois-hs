@@ -7,7 +7,6 @@ module WhoisTest where
 import Data.Either (isRight)
 import Data.Foldable (for_)
 import Data.Word (Word8)
-import Data.FileEmbed (embedStringFile)
 import Data.List (intercalate)
 import Control.Monad (replicateM)
 
@@ -35,18 +34,14 @@ spec_whoisServerFor =
     it "is case-insensitive" $
       whoisServerFor "x.com" `shouldBe` whoisServerFor "X.COM"
 
-    for_ ianaTLDs $ \tld ->
+    for_ ["foo", "bar", "baz"] $ \tld ->
       it ("uses IANA's WHOIS server for " <> tld <> " TLD") $
         whoisServerFor tld `shouldBe` Right ianaWhoisServer
 
-    for_ ianaTLDs $ \tld ->
+    for_ ["foo", "bar", "baz"] $ \tld ->
       it ("handles IANA's " <> tld <> " TLD") $
-        whoisServerFor ("x." <> tld) `shouldSatisfy`
-          (\case
-             Right _ -> True
-             Left NoWhoisServer -> True
-             Left (WebOnlyWhoisServer _) -> True
-             _ -> False)
+        whoisHostName <$> whoisServerFor ("x." <> tld)
+          `shouldBe` Right ("whois.nic." <> tld)
 
     for_ tldServList $ \(tld, expected) ->
       it ("handles " <> tld <> " from 'tld_serv_list'") $ case expected of
@@ -101,9 +96,6 @@ ip4Gen = intercalate "." . map show <$> replicateM 4 partGen
   where
     partGen :: Gen Word8
     partGen = Gen.integral Range.linearBounded
-
-ianaTLDs :: [String]
-ianaTLDs = parseTLDs $(embedStringFile "data/tlds-alpha-by-domain.txt")
 
 isWebOnly :: Either WhoisError a -> Bool
 isWebOnly (Left (WebOnlyWhoisServer _)) = True
